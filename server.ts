@@ -11,16 +11,28 @@ export class AzureCloudShell {
         return (process.env.ACC_CLOUD && process.env.ACC_CLOUD.length != 0);
     }
 
+    static initAzureCloudShellTunnel(server: http.Server) {
+        if (!this.isAzureCloudShell()) {
+            return;
+        }
+        AzureCloudShell.addAzureCloudShellTunnel(server).then((url) => {
+            console.log(`Server is available: ${url}`);
+        });
+    }
+
     static async addAzureCloudShellTunnel(server: http.Server): Promise<string> {
         return new Promise<string>(async (resolve, reject) => {
             server.on('listening', async () => {
                 const addr = server.address() as net.AddressInfo;
                 const tunnel = new AzureCloudShellTunnel(addr.port);
-            
-                process.on('exit', tunnel.close);
-                process.on('SIGINT', tunnel.close);
-                process.on('SIGUSR1', tunnel.close);
-                process.on('SIGUSR2', tunnel.close);
+                const exit = () => {
+                  tunnel.close().then(() => {
+                        process.exit();
+                  });
+                }
+                process.on('SIGINT', exit);
+                process.on('SIGUSR1', exit);
+                process.on('SIGUSR2', exit);
 
                 try {
                     const info = await tunnel.open();
@@ -48,22 +60,23 @@ export class AzureCloudShellTunnel {
             method: 'POST',
             headers: {}
         };
-    
-        return this.connect(opts);
+
+        return AzureCloudShellTunnel.connect(opts);
     }
 
     close(): Promise<AzureTunnelInfo> {
         const opts = {
             host: 'localhost',
             port: 8888,
-            path: `closeport/${this.port}`,
+            path: `/closeport/${this.port}`,
+            method: 'POST',
             headers: {}
         }
 
-        return this.connect(opts);
+        return AzureCloudShellTunnel.connect(opts);
     }
 
-    private connect(opts: http.RequestOptions): Promise<AzureTunnelInfo> {
+    private static connect(opts: http.RequestOptions): Promise<AzureTunnelInfo> {
         return new Promise<AzureTunnelInfo>((resolve, reject) => {
             const req = http.request(opts, (res) => {
                 res.setEncoding('utf8');
@@ -71,7 +84,7 @@ export class AzureCloudShellTunnel {
                 res.on('data', (chunk) => {
                     str = str + chunk;
                 });
-                res.on('close', () => {
+                res.on('end', () => {
                     const obj = JSON.parse(str) as AzureTunnelInfo;
                     resolve(obj);
                 });
@@ -79,6 +92,7 @@ export class AzureCloudShellTunnel {
                     reject(err);
                 })
             });
+            req.end();
         });
     }
 }
