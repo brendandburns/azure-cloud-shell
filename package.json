@@ -1,0 +1,11 @@
+{
+    "name": "azure-cloud-shell",
+    "version": "0.1.0",
+    "description": "Library for accessing Azure Cloud Shell functionality",
+    "dependencies": {},
+    "author": "Brendan Burns",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^10.10.1"
+    }
+}
